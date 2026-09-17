@@ -34,7 +34,8 @@
     "husky": "^9.1.7",
     "lint-staged": "^15.2.10",
     "prettier": "^3.8.4",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "dsh-check": "link:../dsh-check"
   },
   "lint-staged": {
     "*.{ts,tsx,js,mjs,cjs,json,jsonc,md,yml,yaml,html}": "prettier --write"
