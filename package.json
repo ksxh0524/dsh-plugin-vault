@@ -1,8 +1,8 @@
 {
-  "name": "dsh-plugin-asset-store",
+  "name": "dsh-plugin-vault",
   "version": "0.1.0",
   "private": true,
-  "description": "通用资产库（跨域中立件）：SQLite 存结构与索引、文件存字节；二进制不进库行，只记指针+哈希+引用。一库一 vault，删只记 tombstone。",
+  "description": "通用存储底座（跨域中立件）：一 vault 一目录（.av/store.db 存索引、.av/blobs 存字节）；介质拥有者，不知 kind、不记引用、不做生命周期。",
   "type": "module",
   "license": "MIT",
   "main": "./src/index.ts",

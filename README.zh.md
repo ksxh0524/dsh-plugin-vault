@@ -1,27 +1,25 @@
-# asset-store（通用资产库）
+# vault（通用存储底座）
 
-跨域通用资产库（私有，不发布）：SQLite 存结构与索引、文件存字节；二进制不进库行，只记指针 + 哈希 + 引用。一 vault 一库（`<vault>/.av/store.db`），删除只记 tombstone。
+跨域通用存储底座（私有，不发布）：介质拥有者。一 vault 一目录（`.av/store.db` 存索引、`.av/blobs/` 存字节）；二进制不进库行。本层不知 kind 为何物，不记引用、不做生命周期——那是 `dsh-plugin-asset` 的事。
 
 ## 布局
 
 ```
-plugin-asset-store/
+plugin-vault/
 ├── src/
 │   ├── index.ts     # 对外出口（设计意图见文件头）
 │   ├── schema.ts    # 表结构唯一真源 + SCHEMA_VERSION 门（fail-loud，不迁移）
-│   ├── store.ts     # lazy open（WAL + busy_timeout）、close、integrity_check
-│   ├── registry.ts  # vault 注册表：configPath > ASSET_VAULT_REGISTRY > ~/.av/vaults.json
-│   └── refs.ts      # 内容寻址登记 + 引用计数 + tombstone/restore
+│   ├── vault.ts     # lazy openVault(vaultDir)（WAL + busy_timeout）、close、integrity_check
+│   └── blobs.ts     # 内容寻址存取：.av/blobs/<aa>/<sha256>，流式哈希
 └── tests/           # node --test，fixture 只落 os.tmpdir
 ```
 
 ## 口径
 
-- 纯 Node（`node:sqlite` 内置，零第三方依赖）；模块加载期零 IO——`openStore` 只在调用时执行，boot 永不被 DB 拖死。
-- 内容寻址：`assets.id = sha256`，同一份字节跨项目只存一行，引用方在 `refs` 各自记账，不拷贝。
-- 只 tombstone 不真删：`tombstone()` 保留库行与字节，无 GC；要清必须带引用计数显式下令。
+- 纯 Node（`node:sqlite` 内置，零第三方依赖）；模块加载期零 IO——`openVault` 只在调用时执行，boot 永不被 DB 拖死。
+- 字节内容寻址：同 sha256 只存一份；复存复用（字节数不一致 = 盘被库外动过，fail-loud）。
+- 原子落盘：tmp + rename，不留半截文件；大文件流式过盘（两遍、内存恒定）。
 - 版本门：`meta.schema_version` 不符抛 `version-mismatch`——删库重建或重建索引，绝不自动迁移（STANDARDS §7）。
-- 人物/图片生成暂缓：新种别走 `kind` 字符串 + `metadata` JSON 扩展，不改表。
 
 ## 开发
 
@@ -30,8 +28,8 @@ pnpm install
 pnpm check   # prettier + tsc --noEmit + node --test
 ```
 
-Conventional Commits 强制（scope：`store` / `schema` / `registry` / `refs` / `tests` / `infra`，见 `commitlint.config.cjs`）。
+Conventional Commits 强制（scope：`vault` / `schema` / `blobs` / `tests` / `infra`，见 `commitlint.config.cjs`）。
 
 ## 托管
 
-私有独立仓（不发布、不 subtree 推送）。消费方 link 引用（`"dsh-plugin-asset-store": "link:../plugin-asset-store"`——禁用 `workspace:` 协议）。
+私有独立仓（不发布、不 subtree 推送）。消费方 link 引用（`"dsh-plugin-vault": "link:../plugin-vault"`——禁用 `workspace:` 协议）。
