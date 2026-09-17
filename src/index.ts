@@ -11,5 +11,5 @@ export * as schema from "./schema.ts";
 export * as vault from "./vault.ts";
 export * as blobs from "./blobs.ts";
 export { SCHEMA_VERSION, ensureVaultSchema } from "./schema.ts";
-export { openVault, integrityCheck, type VaultHandle, type OpenVaultOptions, type JournalMode } from "./vault.ts";
+export { openVault, openMemoryVault, integrityCheck, type VaultHandle, type OpenVaultOptions, type JournalMode } from "./vault.ts";
 export { putBlob, getBlobPath, blobPathFor, type BlobPointer, type BlobSource } from "./blobs.ts";

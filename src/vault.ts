@@ -12,7 +12,8 @@
  * 缺省 `journal_mode=WAL` + `busy_timeout=5000`；网络挂载等 WAL 不可用时调用方可传
  * journalMode: "delete"（见上游 dsh-storage-sqlite 同款口径）。
  */
-import { mkdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { ensureVaultSchema } from "./schema.ts";
@@ -76,6 +77,39 @@ export function openVault(vaultDir: string, opts: OpenVaultOptions = {}): VaultH
   return {
     vaultDir: dir,
     path,
+    blobsDir,
+    db: opened,
+    close: () => {
+      if (closed) return;
+      closed = true;
+      db.close();
+    },
+  };
+}
+
+/** 打开内存 vault（索引 :memory: + 临时 blobs 家）：单测与契约套件用，不落盘。
+ *  句柄形状与 openVault 一致，同一套契约断言可跑两遍（文件后端 / 内存后端）。 */
+export function openMemoryVault(): VaultHandle {
+  const dir = mkdtempSync(join(tmpdir(), "vault-mem-"));
+  const blobsDir = join(dir, "blobs");
+  let db: DatabaseSync | undefined;
+  try {
+    mkdirSync(blobsDir, { recursive: true, mode: 0o700 });
+    db = new DatabaseSync(":memory:");
+    ensureVaultSchema(db);
+  } catch (cause) {
+    try {
+      db?.close();
+    } catch {
+      /* 关失败不掩盖原错 */
+    }
+    throw fail(`${dir} (:memory:)`, cause);
+  }
+  const opened = db as DatabaseSync;
+  let closed = false;
+  return {
+    vaultDir: dir,
+    path: ":memory:",
     blobsDir,
     db: opened,
     close: () => {
