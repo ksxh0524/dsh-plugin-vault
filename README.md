@@ -1,6 +1,6 @@
 # vault
 
-Generic storage base (private, not published): the medium owner. One vault is one directory — `.av/store.db` holds the index (SQLite), `.av/blobs/` holds the bytes. Binaries never enter DB rows. This layer knows no `kind`, keeps no references, does no lifecycle — that is `dsh-plugin-asset`'s job.
+Generic storage base (private, not published): the medium owner. One vault is one caller-given directory — `store.db` holds the index (SQLite), `blobs/` holds the bytes. Binaries never enter DB rows. This layer knows no `kind`, keeps no references, does no lifecycle — that is `dsh-plugin-asset`'s job.
 
 ## Layout
 
@@ -10,7 +10,7 @@ plugin-vault/
 │   ├── index.ts     # re-export surface (design intent in header)
 │   ├── schema.ts    # DDL single source + SCHEMA_VERSION gate (fail-loud, no migration)
 │   ├── vault.ts     # lazy openVault(vaultDir) (WAL + busy_timeout), close, integrity_check
-│   └── blobs.ts     # content-addressed put/get: .av/blobs/<aa>/<sha256>, streaming hash
+│   └── blobs.ts     # content-addressed put/get: blobs/<aa>/<sha256>, streaming hash
 └── tests/           # node --test, fixtures under os.tmpdir only
 ```
 
@@ -20,6 +20,7 @@ plugin-vault/
 - Content-addressed bytes: same sha256 is stored once; re-put reuses (size mismatch = fail-loud, disk was touched outside the vault).
 - Atomic landing: tmp + rename, never half-written files; large files stream (two passes, constant memory).
 - Version gate: `meta.schema_version` mismatch throws `version-mismatch` — delete and rebuild or reindex, never auto-migrate (STANDARDS §7).
+- Caller-owned locations: `openVault` takes the complete store directory and joins no subdirectory; this layer ships no default paths — positions come from the caller (the config-file convention lives in `dsh-plugin-asset`).
 
 ## Development
 

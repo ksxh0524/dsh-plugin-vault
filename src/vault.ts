@@ -1,8 +1,9 @@
-/** vault —— 库家目录唯一入口：lazy open + 句柄 + 自检（browser 半禁入）。
+/** vault —— 库目录唯一入口：lazy open + 句柄 + 自检（browser 半禁入）。
  *
- * 一个 vault = 一个目录：`<vault>/.av/store.db`（索引）+ `<vault>/.av/blobs/`（字节，
- * 见 blobs.ts）。openVault 的参数是库家目录，不是库文件——上层 registry.resolveVault
- * 的返回值直插即用。本层不知 kind 为何物，不记引用、不做生命周期（那是 dsh-plugin-asset 的事）。
+ * 一个 vault = 调用方给定的一个目录：`<库目录>/store.db`（索引）+ `<库目录>/blobs/`（字节，
+ * 见 blobs.ts）。openVault 的参数就是完整库目录，本层不拼任何子目录——位置由调用方
+ * 全权决定（配置文件约定见 dsh-plugin-asset）。本层不知 kind 为何物，不记引用、
+ * 不做生命周期（那是 dsh-plugin-asset 的事）。
  *
  * 红线（incidents/004 的教训）：
  * - 模块顶层不 open：openVault 只在工具调用时执行，import 期零 IO，boot 永不被 DB 拖死。
@@ -30,11 +31,11 @@ export type OpenVaultOptions = {
 };
 
 export type VaultHandle = {
-  /** 解析后的库家目录绝对路径。 */
+  /** 调用方传入的完整库目录绝对路径（本层不拼接，只 resolve）。 */
   vaultDir: string;
-  /** 解析后的库绝对路径（`<vault>/.av/<dbFileName>`）。 */
+  /** 解析后的库绝对路径（`<库目录>/<dbFileName>`）。 */
   path: string;
-  /** 字节家目录（`<vault>/.av/blobs`，blobs.ts 的写点）。 */
+  /** 字节家目录（`<库目录>/blobs`，blobs.ts 的写点）。 */
   blobsDir: string;
   /** 直连句柄（同步 API；调用方串行写）。 */
   db: DatabaseSync;
@@ -50,14 +51,13 @@ function fail(path: string, cause: unknown): Error {
 /** 打开 vault（不存在即建，父目录 owner-only）；建表/验版本失败即抛。 */
 export function openVault(vaultDir: string, opts: OpenVaultOptions = {}): VaultHandle {
   // 先判空再 resolve：resolve("") 会静默回落 cwd，等于猜路径（D-1 禁止）。
-  if (!String(vaultDir || "").trim()) throw new Error("vault openVault 缺 vaultDir（传库家目录绝对路径）");
+  if (!String(vaultDir || "").trim()) throw new Error("vault openVault 缺 vaultDir（传完整库目录绝对路径，位置由调用方决定）");
   const dir = resolve(String(vaultDir).trim());
-  const dotav = join(dir, ".av");
-  const path = join(dotav, opts.dbFileName ?? "store.db");
-  const blobsDir = join(dotav, "blobs");
+  const path = join(dir, opts.dbFileName ?? "store.db");
+  const blobsDir = join(dir, "blobs");
   let db: DatabaseSync | undefined;
   try {
-    mkdirSync(dotav, { recursive: true, mode: 0o700 });
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
     mkdirSync(blobsDir, { recursive: true, mode: 0o700 });
     db = new DatabaseSync(path);
     db.exec(`PRAGMA journal_mode = ${opts.journalMode ?? "wal"}`);

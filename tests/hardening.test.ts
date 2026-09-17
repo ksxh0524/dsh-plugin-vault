@@ -1,7 +1,7 @@
 /** hardening.test.ts —— 并发/坏库/坏盘的负向门（真执行被测行为，不凑绿）。 */
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { openVault } from "../src/vault.ts";
@@ -29,8 +29,7 @@ describe("并发（同 vault 双句柄）", () => {
 describe("坏库 fail-loud", () => {
   test("非 SQLite 文件 open 即抛带路径错", () => {
     const v = mkdtempSync(join(tmpdir(), "vault-hard-"));
-    mkdirSync(join(v, ".av"), { recursive: true });
-    writeFileSync(join(v, ".av", "store.db"), "根本不是数据库", "utf8");
+    writeFileSync(join(v, "store.db"), "根本不是数据库", "utf8");
     assert.throws(() => openVault(v), /打开失败/);
   });
 });

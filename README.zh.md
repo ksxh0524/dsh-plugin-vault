@@ -1,6 +1,6 @@
 # vault（通用存储底座）
 
-跨域通用存储底座（私有，不发布）：介质拥有者。一 vault 一目录（`.av/store.db` 存索引、`.av/blobs/` 存字节）；二进制不进库行。本层不知 kind 为何物，不记引用、不做生命周期——那是 `dsh-plugin-asset` 的事。
+跨域通用存储底座（私有，不发布）：介质拥有者。一 vault 一调用方给定的目录（`store.db` 存索引、`blobs/` 存字节）；二进制不进库行。本层不知 kind 为何物，不记引用、不做生命周期——那是 `dsh-plugin-asset` 的事。
 
 ## 布局
 
@@ -10,7 +10,7 @@ plugin-vault/
 │   ├── index.ts     # 对外出口（设计意图见文件头）
 │   ├── schema.ts    # 表结构唯一真源 + SCHEMA_VERSION 门（fail-loud，不迁移）
 │   ├── vault.ts     # lazy openVault(vaultDir)（WAL + busy_timeout）、close、integrity_check
-│   └── blobs.ts     # 内容寻址存取：.av/blobs/<aa>/<sha256>，流式哈希
+│   └── blobs.ts     # 内容寻址存取：blobs/<aa>/<sha256>，流式哈希
 └── tests/           # node --test，fixture 只落 os.tmpdir
 ```
 
@@ -20,6 +20,7 @@ plugin-vault/
 - 字节内容寻址：同 sha256 只存一份；复存复用（字节数不一致 = 盘被库外动过，fail-loud）。
 - 原子落盘：tmp + rename，不留半截文件；大文件流式过盘（两遍、内存恒定）。
 - 版本门：`meta.schema_version` 不符抛 `version-mismatch`——删库重建或重建索引，绝不自动迁移（STANDARDS §7）。
+- 位置调用方定：`openVault` 只收完整库目录，不拼任何子目录、不带缺省路径——位置经调用方注入（配置文件约定见 `dsh-plugin-asset`）。
 
 ## 开发
 

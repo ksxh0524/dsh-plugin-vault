@@ -1,4 +1,4 @@
-/** vault.test.ts —— 库家目录：建库/版本门/自检/空参（fixture 全在 /tmp，不碰老树）。 */
+/** vault.test.ts —— 库目录：建库/版本门/自检/空参（fixture 全在 /tmp，不碰老树）。 */
 import test, { describe } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
@@ -13,10 +13,10 @@ function tmpVault(): string {
 }
 
 describe("openVault", () => {
-  test("新库建 .av/store.db 并 stamped 版本", () => {
+  test("新库建 store.db 并 stamped 版本（目录即调用方所传）", () => {
     const h = openVault(tmpVault());
     try {
-      assert.ok(h.path.endsWith(join(".av", "store.db")));
+      assert.ok(h.path.endsWith(join("store.db")));
       const row = h.db.prepare(`SELECT value FROM meta WHERE key = 'schema_version'`).get() as { value: string };
       assert.equal(row.value, String(SCHEMA_VERSION));
     } finally {
