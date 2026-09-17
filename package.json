@@ -1,5 +1,5 @@
 {
-  "name": "asset-store",
+  "name": "dsh-plugin-asset-store",
   "version": "0.1.0",
   "private": true,
   "description": "通用资产库（跨域中立件）：SQLite 存结构与索引、文件存字节；二进制不进库行，只记指针+哈希+引用。一库一 vault，删只记 tombstone。",

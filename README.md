@@ -5,7 +5,7 @@ Generic cross-domain asset library (private, not published): SQLite holds struct
 ## Layout
 
 ```
-asset-store/
+plugin-asset-store/
 ├── src/
 │   ├── index.ts     # re-export surface (design intent in header)
 │   ├── schema.ts    # DDL single source + SCHEMA_VERSION gate (fail-loud, no migration)
@@ -34,4 +34,4 @@ Conventional Commits enforced (scopes: `store` / `schema` / `registry` / `refs` 
 
 ## Hosting
 
-Private independent repo (not published, not subtree-pushed). Consumers link it (`"asset-store": "link:../asset-store"` — never the `workspace:` protocol).
+Private independent repo (not published, not subtree-pushed). Consumers link it (`"dsh-plugin-asset-store": "link:../plugin-asset-store"` — never the `workspace:` protocol).

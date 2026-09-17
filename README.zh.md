@@ -5,7 +5,7 @@
 ## 布局
 
 ```
-asset-store/
+plugin-asset-store/
 ├── src/
 │   ├── index.ts     # 对外出口（设计意图见文件头）
 │   ├── schema.ts    # 表结构唯一真源 + SCHEMA_VERSION 门（fail-loud，不迁移）
@@ -34,4 +34,4 @@ Conventional Commits 强制（scope：`store` / `schema` / `registry` / `refs` /
 
 ## 托管
 
-私有独立仓（不发布、不 subtree 推送）。消费方 link 引用（`"asset-store": "link:../asset-store"`——禁用 `workspace:` 协议）。
+私有独立仓（不发布、不 subtree 推送）。消费方 link 引用（`"dsh-plugin-asset-store": "link:../plugin-asset-store"`——禁用 `workspace:` 协议）。
