@@ -32,7 +32,7 @@ import type { VaultBackendKind } from "./backend.ts";
 /** 最小宿主结构类型（只声明本包实际触达的面；不 import 任何 DSH 实例协议包）。 */
 export type ToolRecord = {
   name: string;
-  execute: (args: never, exec: unknown) => Promise<unknown>;
+  execute: (args: Record<string, unknown>, exec: unknown) => Promise<unknown>;
   [key: string]: unknown;
 };
 
@@ -200,6 +200,11 @@ function words(tokens: Token[]): string[] {
   return tokens.filter((x) => x.t === "word").map((x) => x.v.toUpperCase());
 }
 
+/** token 流首词（门禁已验非空；调用方保证）。 */
+function headOf(tokens: Token[]): string {
+  return words(tokens)[0] as string;
+}
+
 /** 禁 token（ATTACH/PRAGMA/VACUUM）：串内不算，真码出现即拒。 */
 function checkNoForbidden(tokens: Token[], tool: string): void {
   for (const x of tokens) {
@@ -234,14 +239,22 @@ function tableAfter(tokens: Token[], at: number): { name: string; next: number }
   return null;
 }
 
-/** 同缀检查：提取名须以 `<ns>__` 开头；禁 schema 限定（`a.b` 形）；读工具 CTE 名豁免。 */
+/** 同缀检查：提取名须以 `<ns>__` 开头；禁 schema 限定（`a.b` 形）；读工具 CTE 名豁免。
+ *  UPDATE 位只认语句首词（`UPDATE t SET` 靶表）：`ON CONFLICT DO UPDATE SET` 的 UPDATE
+ *  是 upsert 子句动词，其后 SET 不是表——首词规则天然放行 upsert 形。 */
 function checkTablePrefix(tokens: Token[], ns: string, tool: string, cte: Set<string>): void {
   const prefix = `${ns}__`;
+  const firstWord = tokens.find((x) => x.t === "word") as { t: "word"; v: string } | undefined;
   for (let i = 0; i < tokens.length; i += 1) {
     const x = tokens[i] as Token;
     if (x.t !== "word" || !TABLE_POS.has(x.v.toUpperCase())) continue;
+    if (x.v.toUpperCase() === "UPDATE" && x !== firstWord) continue;
     const got = tableAfter(tokens, i);
     if (!got) throw new Error(`[${tool}] ${x.v} 位后缺表名（SQL 不完整）`);
+    const dotted = tokens[got.next + 1];
+    if (dotted !== undefined && dotted.t === "punct" && dotted.v === ".") {
+      throw new Error(`[${tool}] 禁 schema 限定表名 ${JSON.stringify(`${got.name}.*`)}（只收裸表名且须以 ${prefix} 开头）`);
+    }
     if (got.name.includes(".")) throw new Error(`[${tool}] 禁 schema 限定表名 ${JSON.stringify(got.name)}（只收裸表名且须以 ${prefix} 开头）`);
     if (cte.has(got.name)) continue;
     if (!got.name.startsWith(prefix)) {
@@ -407,10 +420,10 @@ const EXEC_OUTPUT_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
-    changes: { type: "integer", description: "影响行数（DDL 为 0）" },
+    changes: { type: "integer", description: "影响行数（驱动返回口径；DDL 不保证为 0）" },
     lastInsertRowid: {
       oneOf: [{ type: "number" }, { type: "null" }],
-      description: "最后插入行 id（非 INSERT 语义为 null）",
+      description: "最后插入行 id（仅 INSERT 且 changes>0 时有值，否则 null）",
     },
   },
 } as const;
@@ -558,7 +571,7 @@ function makeDbExecTool(config?: VaultToolsConfig): ToolRecord {
       assertNsName(ns);
       const sql = String(args.sql ?? "");
       if (!sql.trim()) throw new Error(`[${tool}] sql 为空`);
-      gateExec(ns, sql);
+      const head = headOf(gateExec(ns, sql));
       const binds = checkParams(args.params, tool);
       const backend = backendFor(exec, config);
       const handle = backend.openDb(ns);
@@ -571,8 +584,12 @@ function makeDbExecTool(config?: VaultToolsConfig): ToolRecord {
           throw new Error(`[${tool}] 执行失败（ns=${ns}）：${reason}`);
         }
         const changes = typeof info.changes === "bigint" ? Number(info.changes) : (info.changes as number);
+        // lastInsertRowid 是连接级水位（会泄漏建库 meta 行的旧值）：仅 INSERT 且 changes>0 时返回值，
+        // 0（DDL / WITHOUT ROWID 表）与非 INSERT 一律归一为 null。
         const rowid = info.lastInsertRowid;
-        const lastInsertRowid = typeof rowid === "bigint" ? (rowid <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(rowid) : null) : ((rowid as number) ?? null);
+        const numRowid =
+          typeof rowid === "bigint" ? (rowid <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(rowid) : null) : typeof rowid === "number" ? rowid : null;
+        const lastInsertRowid = head === "INSERT" && changes > 0 ? (numRowid === 0 ? null : numRowid) : null;
         return { changes, lastInsertRowid };
       } finally {
         handle.close();
