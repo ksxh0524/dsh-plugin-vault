@@ -47,7 +47,7 @@ Conventional Commits enforced (scopes: `vault` / `schema` / `blobs` / `backend` 
 | vault_db_query | `ns`, `sql` (single read), `params?`                         | `{ columns, rows }` (BLOB columns as base64)                              |
 | vault_ns_info  | `ns`                                                         | `{ ns, path, tables, integrity }`                                         |
 
-`vault_db_exec` accepts first keywords `INSERT` / `UPDATE` / `DELETE` / `CREATE TABLE` / `CREATE INDEX` / `DROP TABLE` / `DROP INDEX` only; `vault_db_query` accepts `SELECT` / `WITH` / `EXPLAIN` only (an `EXPLAIN`ed write is rejected, writes inside `WITH` are rejected). Semicolon chaining, `ATTACH`, `PRAGMA`, and `VACUUM` are rejected on both faces. All errors are Chinese fail-loud, no fallbacks.
+`vault_db_exec` accepts first keywords `INSERT` / `UPDATE` / `DELETE` / `CREATE TABLE` / `CREATE INDEX` / `DROP TABLE` / `DROP INDEX` only; `vault_db_query` accepts `SELECT` / `WITH` / `EXPLAIN` only (an `EXPLAIN`ed write is rejected, writes inside `WITH` are rejected). Semicolon chaining, `ATTACH`, `PRAGMA`, and `VACUUM` are rejected on both faces. Domain errors are Chinese fail-loud with a way out and never fall back (wrong JSON types are rejected in English by the platform argument check, like every tool).
 
 ## Configuration
 
@@ -65,7 +65,7 @@ Resolution order for the store root: `config.vaultDir` > env `DSH_VAULT_DIR` > n
 
 - One namespace = one library: `<vaultDir>/ns/<ns>/store.db` (WAL + `busy_timeout`, per-ns schema gate). No registry table; `SCHEMA_VERSION` is not bumped by the plugin layer.
 - Bytes are global and content-addressed: `<vaultDir>/blobs/<aa>/<sha256>`, shared across namespaces (same sha stored once; size mismatch = fail-loud, the disk was touched outside the vault).
-- Every table/index touched by SQL must be `<ns>__*` (`FROM` / `JOIN` / `INTO` / `UPDATE` / `TABLE` / `INDEX` positions, subqueries included; string literals don't count). Schema-qualified names (`main.t`) are rejected, as are `TEMP` tables and index names without the prefix. Read-side `WITH` query CTE names are exempt.
+- Every table/index touched by SQL must be `<ns>__*` (`FROM` / `JOIN` / `INTO` / `UPDATE` / `TABLE` / `INDEX` positions, subqueries included; string literals don't count). Schema-qualified names (`main.t`) are rejected, as are `TEMP` tables and index names without the prefix. Read-side `WITH` query CTE names are exempt. Hyphenated namespaces (e.g. `script-v2`) need quoted table names (`"script-v2__t"`): a bare `script-v2__t` parses as subtraction and fails closed.
 - Limits: single statement per call (one trailing semicolon tolerated); `params` accepts only string/number/null; `bytesBase64` payloads decode to ≤8MB (larger files go through the `path` source, which streams); reads over 8MB return the path only; `BLOB` columns come back base64-encoded.
 
 ## Verify

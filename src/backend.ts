@@ -131,7 +131,7 @@ export class S3Backend implements Backend {
 
   constructor(_opts?: { endpoint?: string; bucket?: string }) {
     throw new Error(
-      'vault S3 后端未实现（backend="s3"）：当前仅 local 可用——改回 backend:"local"（或 env DSH_VAULT_BACKEND=local），或按 src/backend.ts Backend 接口实现 S3Backend 后替换本桩',
+      'vault S3 后端未实现（backend="s3"）：当前仅 local 可用——改回 backend:"local"（profile patch 行 config.backend，缺省即 local），或按 src/backend.ts Backend 接口实现 S3Backend 后替换本桩',
     );
   }
 

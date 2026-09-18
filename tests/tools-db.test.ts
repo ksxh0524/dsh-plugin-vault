@@ -106,6 +106,24 @@ describe("正向：写读往返 + ns 隔离", () => {
     await assert.rejects(exec.execute({ ns: "ix", sql: "CREATE INDEX idx_v ON ix__t (v)" }, BARE_EXEC), /只许操作 ix__/);
     await exec.execute({ ns: "ix", sql: "CREATE INDEX ix__idx_v ON ix__t (v)" }, BARE_EXEC);
   });
+
+  test("函数调用位不误杀：replace() 放行；括号内真写动词仍拒", async () => {
+    const { exec, query } = tools();
+    await exec.execute({ ns: "fn", sql: "CREATE TABLE fn__t (v TEXT)" }, BARE_EXEC);
+    await exec.execute({ ns: "fn", sql: "INSERT INTO fn__t (v) VALUES ('a-b')" }, BARE_EXEC);
+    const got = (await query.execute({ ns: "fn", sql: "SELECT replace(v, '-', '_') AS w FROM fn__t" }, BARE_EXEC)) as { rows: Array<{ w: string }> };
+    assert.equal(got.rows[0]?.w, "a_b");
+    await assert.rejects(query.execute({ ns: "fn", sql: "WITH c AS (DELETE FROM fn__t RETURNING *) SELECT * FROM c" }, BARE_EXEC), /禁写动词/);
+  });
+
+  test("连字符 ns：引号表名往返；裸写 fail-closed（减号歧义）", async () => {
+    const { exec, query } = tools();
+    await exec.execute({ ns: "hy-phen", sql: 'CREATE TABLE "hy-phen__t" (v TEXT)' }, BARE_EXEC);
+    await exec.execute({ ns: "hy-phen", sql: 'INSERT INTO "hy-phen__t" (v) VALUES (?)', params: ["q"] }, BARE_EXEC);
+    const got = (await query.execute({ ns: "hy-phen", sql: 'SELECT v FROM "hy-phen__t"' }, BARE_EXEC)) as { rows: Array<{ v: string }> };
+    assert.equal(got.rows[0]?.v, "q");
+    await assert.rejects(query.execute({ ns: "hy-phen", sql: "SELECT * FROM hy-phen__t" }, BARE_EXEC), /越界/);
+  });
 });
 
 describe("负向矩阵：前缀逃逸全红", () => {

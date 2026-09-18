@@ -47,7 +47,7 @@ Conventional Commits 强制（scope：`vault` / `schema` / `blobs` / `backend` /
 | vault_db_query | `ns`、`sql`（单条读）、`params?`                            | `{ columns, rows }`（BLOB 列转 base64）                                  |
 | vault_ns_info  | `ns`                                                        | `{ ns, path, tables, integrity }`                                        |
 
-`vault_db_exec` 首关键字只收 `INSERT` / `UPDATE` / `DELETE` / `CREATE TABLE` / `CREATE INDEX` / `DROP TABLE` / `DROP INDEX`；`vault_db_query` 首关键字仅 `SELECT` / `WITH` / `EXPLAIN`（`EXPLAIN` 套写拒、`WITH` 内写拒）。分号多语句、`ATTACH`、`PRAGMA`、`VACUUM` 两面全禁。错一律中文 fail-loud，不回落。
+`vault_db_exec` 首关键字只收 `INSERT` / `UPDATE` / `DELETE` / `CREATE TABLE` / `CREATE INDEX` / `DROP TABLE` / `DROP INDEX`；`vault_db_query` 首关键字仅 `SELECT` / `WITH` / `EXPLAIN`（`EXPLAIN` 套写拒、`WITH` 内写拒）。分号多语句、`ATTACH`、`PRAGMA`、`VACUUM` 两面全禁。语义错一律中文 fail-loud 并给出路，不回落（JSON 类型错由平台参数校验英文报，与所有工具一致）。
 
 ## 配置
 
@@ -65,7 +65,7 @@ config:
 
 - 一 ns 一库：`<vaultDir>/ns/<ns>/store.db`（WAL + `busy_timeout`，版本门各 ns 独立）。无注册表；插件层不 bump `SCHEMA_VERSION`。
 - 字节全局内容寻址：`<vaultDir>/blobs/<aa>/<sha256>`，跨 ns 同 sha 只存一份（字节数不一致 = 盘被库外动过，fail-loud）。
-- SQL 触及的表/索引须全匹配 `<ns>__*`（`FROM` / `JOIN` / `INTO` / `UPDATE` / `TABLE` / `INDEX` 位，含子查询；串内不算）。schema 限定（`main.t` 形）拒，`TEMP` 表拒，无前缀索引名拒。读面 `WITH` 的 CTE 定义名豁免。
+- SQL 触及的表/索引须全匹配 `<ns>__*`（`FROM` / `JOIN` / `INTO` / `UPDATE` / `TABLE` / `INDEX` 位，含子查询；串内不算）。schema 限定（`main.t` 形）拒，`TEMP` 表拒，无前缀索引名拒。读面 `WITH` 的 CTE 定义名豁免。ns 含 `-`（如 `script-v2`）时表名须引号包裹（`"script-v2__t"`）：裸写会被 parse 成减号而 fail-closed。
 - 边界：每次调用只收单语句（末尾一个分号容忍）；`params` 只收 string/number/null；`bytesBase64` 解码后≤8MB（大文件走 `path` 源流式入库）；超 8MB 的读只返路径；`BLOB` 列读回为 base64 字符串。
 
 ## 验证

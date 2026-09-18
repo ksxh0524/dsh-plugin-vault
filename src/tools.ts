@@ -263,7 +263,8 @@ function checkTablePrefix(tokens: Token[], ns: string, tool: string, cte: Set<st
   }
 }
 
-/** 读工具动词位禁写：语句动词位（起始/(/,/)/,/; 后且非 AS 别名位）出现写动词即拒。 */
+/** 读工具动词位禁写：语句动词位（起始/(/,/)/,/; 后且非 AS 别名位）出现写动词即拒。
+ *  后随 `(` 的是函数调用位（如 replace(v,'a','b')），SQLite 写语句动词后从不直接跟 `(`——豁免。 */
 function checkNoWriteVerbs(tokens: Token[], tool: string): void {
   const sig: Token[] = tokens;
   for (let i = 0; i < sig.length; i += 1) {
@@ -274,6 +275,7 @@ function checkNoWriteVerbs(tokens: Token[], tool: string): void {
     if (!prevOk) continue;
     const next = i + 1 < sig.length ? (sig[i + 1] as Token) : null;
     if (next !== null && next.t === "word" && next.v.toUpperCase() === "AS") continue;
+    if (next !== null && next.t === "punct" && next.v === "(") continue;
     throw new Error(`[${tool}] 读工具禁写动词 ${x.v}（写请调 vault_db_exec；读面只收 SELECT/WITH/EXPLAIN）`);
   }
 }
