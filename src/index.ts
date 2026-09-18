@@ -6,6 +6,10 @@
  *
  * 红线：纯 node（含 node:sqlite，不引第三方）；模块顶层零 IO（open 只在调用时）；
  * 路径全注入（vaultDir 必传），缺席 fail-loud。
+ *
+ * 冻结声明（§2.4）：本文件导出原样冻结、零新增——新代码（cordis 工具面 src/cordis.ts、
+ * 后端接缝 src/backend.ts、五工具 src/tools.ts）禁引用本库面，统一走 Backend 接缝；
+ * 老调用方（经包根 bare import，如短剧包 store.ts）在迁移波再断，在此之前包根保持可用。
  */
 export * as schema from "./schema.ts";
 export * as vault from "./vault.ts";

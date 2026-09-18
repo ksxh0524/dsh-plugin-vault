@@ -1,0 +1,10 @@
+# dsh-plugin-vault layer：通用存储层插件（一 ns 一库 + 全局内容寻址字节家；五工具见 src/tools.ts）。
+# config.vaultDir：库根目录（绝对路径）；空串 = env DSH_VAULT_DIR > 工作区中性锚（向上找 .vault/workspace.json，内容合法 JSON 即认），全 miss 即 fail-loud。
+# config.backend：后端种别（缺省 local；s3 只有桩，配了即抛 not-implemented + 出路）。
+# 载入名用子路径 dsh-plugin-vault/cordis：包根（.）是冻结库面（老调用方迁移波再断），插件壳走 ./cordis 子路径。
+- insert:
+    - id: dsh-plugin-vault
+      name: dsh-plugin-vault/cordis
+      config:
+        vaultDir: ""
+        backend: "local"

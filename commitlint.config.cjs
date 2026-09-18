@@ -5,6 +5,9 @@
  *   vault    → src/vault.ts（库家目录：open/close/写串行）
  *   schema   → src/schema.ts（表结构 + 版本门）
  *   blobs    → src/blobs.ts（字节拥有者：内容寻址落盘 + 取回）
+ *   backend  → src/backend.ts（后端接缝：一 ns 一库 + S3 桩）
+ *   tools    → src/tools.ts（cordis 五工具面 + SQL 门禁）
+ *   cordis   → src/cordis.ts + cordis.patch.yml（插件壳：注册 + 接线）
  *   tests    → tests/**（单测与 fixture）
  *   infra    → 根级（package.json/.husky/README/tsconfig）
  */
@@ -13,7 +16,7 @@ module.exports = {
   rules: {
     "header-max-length": [2, "always", 100],
     "body-max-line-length": [2, "always", 160],
-    "scope-enum": [2, "always", ["vault", "schema", "blobs", "tests", "infra"]],
+    "scope-enum": [2, "always", ["vault", "schema", "blobs", "backend", "tools", "cordis", "tests", "infra"]],
     "scope-case": [2, "always", "lower-case"],
     // 中文 subject 常见，且允许 AI/API/SRC/GUI 等缩写开头：关掉大小写启发式。
     "subject-case": [0],
