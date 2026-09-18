@@ -2,8 +2,8 @@
  *
  * 一个 vault = 调用方给定的一个目录：`<库目录>/store.db`（索引）+ `<库目录>/blobs/`（字节，
  * 见 blobs.ts）。openVault 的参数就是完整库目录，本层不拼任何子目录——位置由调用方
- * 全权决定（配置文件约定见 dsh-plugin-asset）。本层不知 kind 为何物，不记引用、
- * 不做生命周期（那是 dsh-plugin-asset 的事）。
+ * 全权决定（集中库根改走 patch 配置 vaultDir）。本层不知 kind 为何物，不记引用、
+ * 不做生命周期。
  *
  * 红线（incidents/004 的教训）：
  * - 模块顶层不 open：openVault 只在工具调用时执行，import 期零 IO，boot 永不被 DB 拖死。

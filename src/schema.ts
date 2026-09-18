@@ -1,8 +1,7 @@
 /** schema —— vault 库表结构唯一真源 + 版本门（STANDARDS §7：语义一变必须 bump 版本让存量作废重建）。
  *
- * 本层只拥有 `meta` 表（版本戳记）。资产层（dsh-plugin-asset）的 `assets/refs/trash`
- * 表由它自己的 `ensureAssetTables(db)` 建在同一库里，版本键 `asset_schema_version`——
- * 两层版本各自 fail-loud，互不牵连。
+ * 本层只拥有 `meta` 表（版本戳记）。调用方自有表（如资产记账表）由调用方自建，
+ * 版本键各自独立、各自 fail-loud，互不牵连。
  */
 import type { DatabaseSync } from "node:sqlite";
 
