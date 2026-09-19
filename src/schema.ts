@@ -1,4 +1,4 @@
-/** schema —— vault 库表结构唯一真源 + 版本门（STANDARDS §7：语义一变必须 bump 版本让存量作废重建）。
+/** schema —— vault 库表结构唯一真源 + 版本门（索引仓 `docs/contract-notes.md`：语义一变必须 bump 版本让存量作废重建）。
  *
  * 本层只拥有 `meta` 表（版本戳记）。调用方自有表（如资产记账表）由调用方自建，
  * 版本键各自独立、各自 fail-loud，互不牵连。
