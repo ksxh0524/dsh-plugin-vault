@@ -1,8 +1,6 @@
 # dsh-plugin-vault
 
-Generic storage-layer plugin (private, not published): one namespace = one SQLite library (`<vaultDir>/ns/<ns>/store.db`), one global content-addressed byte home (`<vaultDir>/blobs/<aa>/<sha256>`). Binaries never enter DB rows. Five tools serve namespaces; the package-root library surface (`src/index.ts`) is frozen for old callers until the migration wave cuts them over — new code goes through the `Backend` seam (`src/backend.ts`).
-
-## Overview
+Generic storage-layer plugin (private, not published): one namespace = one SQLite library (`<vaultDir>/ns/<ns>/store.db`), one global content-addressed byte home (`<vaultDir>/blobs/<aa>/<sha256>`). Binaries never enter DB rows. Five tools serve namespaces; the package-root library surface (`src/index.ts`) is frozen for old callers — new code goes through the `Backend` seam (`src/backend.ts`).
 
 ```
 plugin-vault/
@@ -18,26 +16,7 @@ plugin-vault/
 └── tests/           # node --test, fixtures under os.tmpdir only
 ```
 
-## Install
-
-Private independent repo (not published, not subtree-pushed). Consumers link it (`"dsh-plugin-vault": "link:../plugin-vault"` — never the `workspace:` protocol). The plugin shell loads via the `./cordis` subpath so the frozen package root keeps serving old bare imports:
-
-```yaml
-# profile bundles entry (package name) + patch insert (subpath to the shell):
-bundles: ["dsh-plugin-vault"]
-# cordis.patch.yml insert:
-- id: dsh-plugin-vault
-  name: dsh-plugin-vault/cordis
-```
-
-```bash
-pnpm install
-pnpm check   # prettier + tsc --noEmit + node --test
-```
-
-Conventional Commits enforced (scopes: `vault` / `schema` / `blobs` / `backend` / `tools` / `cordis` / `tests` / `infra` — see `commitlint.config.cjs`).
-
-## Tools
+## Tools & Services
 
 | Tool           | Params                                                       | Returns                                                                   |
 | -------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------- |
@@ -47,34 +26,52 @@ Conventional Commits enforced (scopes: `vault` / `schema` / `blobs` / `backend` 
 | vault_db_query | `ns`, `sql` (single read), `params?`                         | `{ columns, rows }` (BLOB columns as base64)                              |
 | vault_ns_info  | `ns`                                                         | `{ ns, path, tables, integrity }`                                         |
 
-`vault_db_exec` accepts first keywords `INSERT` / `UPDATE` / `DELETE` / `CREATE TABLE` / `CREATE INDEX` / `DROP TABLE` / `DROP INDEX` only; `vault_db_query` accepts `SELECT` / `WITH` / `EXPLAIN` only (an `EXPLAIN`ed write is rejected, writes inside `WITH` are rejected). Semicolon chaining, `ATTACH`, `PRAGMA`, and `VACUUM` are rejected on both faces. Domain errors are Chinese fail-loud with a way out and never fall back (wrong JSON types are rejected in English by the platform argument check, like every tool).
+## Contract
 
-## Configuration
+No Remote — tools only.
 
-Two keys only (`cordis.patch.yml`):
+| Item        | Rule                                                                                                                                                                                                                                                                                           |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| SQL gate    | `vault_db_exec` accepts first keywords `INSERT` / `UPDATE` / `DELETE` / `CREATE TABLE` / `CREATE INDEX` / `DROP TABLE` / `DROP INDEX` only; `vault_db_query` accepts `SELECT` / `WITH` / `EXPLAIN` only (an `EXPLAIN`ed write is rejected, writes inside `WITH` are rejected)                  |
+| Prefix gate | Every table/index touched by SQL must be `<ns>__*` (`FROM` / `JOIN` / `INTO` / `UPDATE` / `TABLE` / `INDEX` positions, subqueries included; string literals don't count); schema-qualified names, `TEMP` tables and unprefixed index names are rejected; read-side `WITH` CTE names are exempt |
+| Hygiene     | Single statement per call (one trailing semicolon tolerated); `ATTACH`, `PRAGMA` and `VACUUM` rejected on both faces; domain errors are Chinese fail-loud with a way out and never fall back                                                                                                   |
 
-```yaml
-config:
-  vaultDir: "" # store root (absolute path); empty = env DSH_VAULT_DIR > neutral anchor
-  backend: "local" # only local is implemented; "s3" throws not-implemented with a way out
+## Config
+
+| key        | Description                                                                                                                                                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vaultDir` | Store root (absolute path); empty = env `DSH_VAULT_DIR` > neutral anchor (walk up from the calling session cwd for `.vault/workspace.json`; valid JSON counts). A total miss fails loud — never a machine directory |
+| `backend`  | `"local"` only; `"s3"` throws not-implemented with a way out                                                                                                                                                        |
+
+Namespace names must match `^[a-z0-9-]{1,32}$`; hyphenated namespaces (e.g. `script-v2`) need quoted table names (`"script-v2__t"` — a bare one parses as subtraction and fails closed).
+
+## Install
+
+Private independent repo (not published). Consumers link it — never the `workspace:` protocol:
+
+```sh
+# profile package.json dependencies:
+"dsh-plugin-vault": "link:../plugin-vault"
 ```
 
-Resolution order for the store root: `config.vaultDir` > env `DSH_VAULT_DIR` > neutral anchor (walk up from the calling session cwd for `.vault/workspace.json`; valid JSON counts). A total miss fails loud naming all three ways out — never a machine directory. Namespace names must match `^[a-z0-9-]{1,32}$`.
-
-## Namespaces and limits
-
-- One namespace = one library: `<vaultDir>/ns/<ns>/store.db` (WAL + `busy_timeout`, per-ns schema gate). No registry table; `SCHEMA_VERSION` is not bumped by the plugin layer.
-- Bytes are global and content-addressed: `<vaultDir>/blobs/<aa>/<sha256>`, shared across namespaces (same sha stored once; size mismatch = fail-loud, the disk was touched outside the vault).
-- Every table/index touched by SQL must be `<ns>__*` (`FROM` / `JOIN` / `INTO` / `UPDATE` / `TABLE` / `INDEX` positions, subqueries included; string literals don't count). Schema-qualified names (`main.t`) are rejected, as are `TEMP` tables and index names without the prefix. Read-side `WITH` query CTE names are exempt. Hyphenated namespaces (e.g. `script-v2`) need quoted table names (`"script-v2__t"`): a bare `script-v2__t` parses as subtraction and fails closed.
-- Limits: single statement per call (one trailing semicolon tolerated); `params` accepts only string/number/null; `bytesBase64` payloads decode to ≤8MB (larger files go through the `path` source, which streams); reads over 8MB return the path only; `BLOB` columns come back base64-encoded.
+Bundle row: id `dsh-plugin-vault`, name `dsh-plugin-vault/cordis` (subpath to the shell — the frozen package root keeps serving old bare imports). Host restart is user-owned.
 
 ## Verify
 
-```bash
-pnpm check                          # gate: prettier + tsc + full node --test
-node --test tests/tools-db.test.ts  # ns isolation + prefix-escape negative matrix
-node --test tests/tools-blob.test.ts # blob idempotency / conflict / over-limit
-node --test tests/backend.test.ts    # LocalBackend truth + S3 stub assertions
+```sh
+node --test tests/*.test.ts    # server logic first (ns isolation, blob limits, backend truth)
+pnpm check                      # prettier + tsc + full tests (no check:browser — no browser half)
 ```
 
-Boot gate before installing into any profile: follow `docs/runbooks/plugin-gate.md` on a test preset (never port 3080) — the shell registers five tools and does zero IO at load, so boot is never blocked by the DB. `npm publish` is run by the user only.
+Boot gate before installing into any profile: follow `docs/runbooks/plugin-gate.md` on a test preset (never port 3080) — the shell registers five tools and does zero IO at load, so boot is never blocked by the DB.
+
+## Browser half
+
+No browser half — no `lib/`, no `dsh.client` entry in `package.json`; server tools only.
+
+## Known limits
+
+- Single statement per call; `params` accepts only string/number/null.
+- Bytes are global and content-addressed (`<vaultDir>/blobs/<aa>/<sha256>`, shared across namespaces); size mismatch = fail-loud.
+- `bytesBase64` payloads decode to ≤8MB (larger files go through the `path` source, which streams); reads over 8MB return the path only.
+- Only `local` backend is implemented; `SCHEMA_VERSION` is not bumped by the plugin layer (no migration).
